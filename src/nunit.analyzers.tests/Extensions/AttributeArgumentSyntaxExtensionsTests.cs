@@ -34,14 +34,14 @@ namespace NUnit.Analyzers.Tests.Targets.Extensions
         }}
     }}
 }}";
-            var values = await AttributeArgumentSyntaxExtensionsTests.GetAttributeSyntaxAsync(testCode);
+            var values = await GetAttributeSyntaxAsync(testCode).ConfigureAwait(false);
 
             Assert.That(values.Syntax.CanAssignTo(values.TypeSymbol, values.Model), expectedResult);
         }
 
         private static async Task<(AttributeArgumentSyntax Syntax, ITypeSymbol TypeSymbol, SemanticModel Model)> GetAttributeSyntaxAsync(string code)
         {
-            var rootAndModel = await TestHelpers.GetRootAndModel(code);
+            var rootAndModel = await TestHelpers.GetRootAndModel(code).ConfigureAwait(false);
 
             // It's assumed the code will have one attribute with one argument,
             // along with one method with one parameter
