@@ -13,6 +13,47 @@ namespace NUnit.Analyzers.Tests.Extensions
     [TestFixture]
     public sealed class AttributeArgumentSyntaxExtensionsTests
     {
+        [TestCaseSource(nameof(GetTestData))]
+        public async Task CanAssignToTests(string arguments, string methodParameterType,
+            string attributeParameterType, Constraint expectedResult)
+        {
+            var testCode = $@"
+using System;
+
+namespace NUnit.Analyzers.Tests.Targets.Extensions
+{{
+    public sealed class CanAssignToWhenArgumentIsNullAndTargetIsReferenceType
+    {{
+        [Arguments({arguments})]
+        public void Foo({methodParameterType} a) {{ }}
+
+        [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+        public sealed class ArgumentsAttribute : Attribute
+        {{
+            public ArgumentsAttribute({attributeParameterType} x) {{ }}
+        }}
+    }}
+}}";
+            var values = await AttributeArgumentSyntaxExtensionsTests.GetAttributeSyntaxAsync(testCode);
+
+            Assert.That(values.Syntax.CanAssignTo(values.TypeSymbol, values.Model), expectedResult);
+        }
+
+        private static async Task<(AttributeArgumentSyntax Syntax, ITypeSymbol TypeSymbol, SemanticModel Model)> GetAttributeSyntaxAsync(string code)
+        {
+            var rootAndModel = await TestHelpers.GetRootAndModel(code);
+
+            // It's assumed the code will have one attribute with one argument,
+            // along with one method with one parameter
+            var attributeArgumentSyntax = rootAndModel.Node.DescendantNodes().OfType<AttributeSyntax>()
+                .Single(_ => _.Name.ToFullString() == "Arguments")
+                .DescendantNodes().OfType<AttributeArgumentSyntax>().Single();
+            var typeSymbol = rootAndModel.Model.GetDeclaredSymbol(
+                    rootAndModel.Node.DescendantNodes().OfType<MethodDeclarationSyntax>().Single()).Parameters[0].Type;
+
+            return (attributeArgumentSyntax, typeSymbol, rootAndModel.Model);
+        }
+
         private static IEnumerable<TestCaseData> GetTestData()
         {
             yield return new TestCaseData("null", "object", "object", Is.True).
@@ -75,47 +116,6 @@ namespace NUnit.Analyzers.Tests.Extensions
                 SetName("CanAssignToWhenParameterIsVersionAndArgumentIsValidString");
             yield return new TestCaseData("\"a.b.c.d\"", "Version", "object", Is.True).
                 SetName("CanAssignToWhenParameterIsVersionAndArgumentIsInValidString");
-        }
-
-        [TestCaseSource(nameof(GetTestData))]
-        public async Task CanAssignToTests(string arguments, string methodParameterType,
-            string attributeParameterType, Constraint expectedResult)
-        {
-            var testCode = $@"
-using System;
-
-namespace NUnit.Analyzers.Tests.Targets.Extensions
-{{
-    public sealed class CanAssignToWhenArgumentIsNullAndTargetIsReferenceType
-    {{
-        [Arguments({arguments})]
-        public void Foo({methodParameterType} a) {{ }}
-
-        [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-        public sealed class ArgumentsAttribute : Attribute
-        {{
-            public ArgumentsAttribute({attributeParameterType} x) {{ }}
-        }}
-    }}
-}}";
-            var values = await AttributeArgumentSyntaxExtensionsTests.GetAttributeSyntaxAsync(testCode);
-
-            Assert.That(values.Syntax.CanAssignTo(values.TypeSymbol, values.Model), expectedResult);
-        }
-
-        private static async Task<(AttributeArgumentSyntax Syntax, ITypeSymbol TypeSymbol, SemanticModel Model)> GetAttributeSyntaxAsync(string code)
-        {
-            var rootAndModel = await TestHelpers.GetRootAndModel(code);
-
-            // It's assumed the code will have one attribute with one argument,
-            // along with one method with one parameter
-            var attributeArgumentSyntax = rootAndModel.Node.DescendantNodes().OfType<AttributeSyntax>()
-                .Single(_ => _.Name.ToFullString() == "Arguments")
-                .DescendantNodes().OfType<AttributeArgumentSyntax>().Single();
-            var typeSymbol = rootAndModel.Model.GetDeclaredSymbol(
-                    rootAndModel.Node.DescendantNodes().OfType<MethodDeclarationSyntax>().Single()).Parameters[0].Type;
-
-            return (attributeArgumentSyntax, typeSymbol, rootAndModel.Model);
         }
     }
 }
